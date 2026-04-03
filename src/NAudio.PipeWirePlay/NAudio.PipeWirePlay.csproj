@@ -14,7 +14,7 @@
 
     <!-- Package stuff -->
     <PackageId>NAudio.PipeWirePlay</PackageId>
-    <Version>0.0.1</Version>
+    <Version>0.0.2</Version>
     <Description>Small pw-play-backed PipeWire playback library for NAudio on Linux.</Description>
     <PackageTags>NAudio;PipeWire;Linux;audio;pw-play</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

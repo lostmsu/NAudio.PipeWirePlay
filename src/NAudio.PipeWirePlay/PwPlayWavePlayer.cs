@@ -86,10 +86,7 @@ public sealed class PwPlayWavePlayer : IWavePlayer, IDisposable
     public void Stop()
     {
         EnsureNotDisposed();
-        lock (sync)
-        {
-            StopInternal(waitForCompletion: true);
-        }
+        StopInternal(waitForCompletion: true);
     }
 
     public void Dispose()
@@ -99,9 +96,9 @@ public sealed class PwPlayWavePlayer : IWavePlayer, IDisposable
             return;
         }
 
+        StopInternal(waitForCompletion: true);
         lock (sync)
         {
-            StopInternal(waitForCompletion: true);
             disposed = true;
         }
 
@@ -110,15 +107,27 @@ public sealed class PwPlayWavePlayer : IWavePlayer, IDisposable
 
     void StopInternal(bool waitForCompletion)
     {
-        playbackCancellation?.Cancel();
+        CancellationTokenSource? cancellation;
+        Task? task;
+        Process? activeProcess;
 
-        if (process is not null)
+        lock (sync)
+        {
+            cancellation = playbackCancellation;
+            task = playbackTask;
+            activeProcess = process;
+            playbackState = PlaybackState.Stopped;
+        }
+
+        cancellation?.Cancel();
+
+        if (activeProcess is not null)
         {
             try
             {
-                if (!process.HasExited)
+                if (!activeProcess.HasExited)
                 {
-                    process.Kill();
+                    activeProcess.Kill();
                 }
             }
             catch (InvalidOperationException)
@@ -126,23 +135,36 @@ public sealed class PwPlayWavePlayer : IWavePlayer, IDisposable
             }
         }
 
-        if (waitForCompletion && playbackTask is not null)
+        if (waitForCompletion && task is not null)
         {
             try
             {
-                playbackTask.GetAwaiter().GetResult();
+                task.GetAwaiter().GetResult();
             }
             catch
             {
             }
         }
 
-        playbackCancellation?.Dispose();
-        playbackCancellation = null;
-        playbackTask = null;
-        process?.Dispose();
-        process = null;
-        playbackState = PlaybackState.Stopped;
+        lock (sync)
+        {
+            if (ReferenceEquals(playbackCancellation, cancellation))
+            {
+                playbackCancellation?.Dispose();
+                playbackCancellation = null;
+            }
+
+            if (ReferenceEquals(playbackTask, task))
+            {
+                playbackTask = null;
+            }
+
+            if (ReferenceEquals(process, activeProcess))
+            {
+                process?.Dispose();
+                process = null;
+            }
+        }
     }
 
     async Task PumpAudioAsync(Process activeProcess, IWaveProvider activeProvider, CancellationToken cancellationToken)
