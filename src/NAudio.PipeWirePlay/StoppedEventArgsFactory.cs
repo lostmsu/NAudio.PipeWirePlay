@@ -13,7 +13,7 @@ static class StoppedEventArgsFactory
 
     public static StoppedEventArgs? Create(Exception? exception)
     {
-        if (exception is not null && ExceptionConstructor is not null)
+        if (ExceptionConstructor is not null)
         {
             return (StoppedEventArgs?)ExceptionConstructor.Invoke([exception]);
         }
